@@ -3,6 +3,7 @@ import mss
 import time
 import requests
 import random
+import uuid
 import sys 
 import math
 import keyboard
@@ -49,6 +50,10 @@ class Logger:
         else:
             print(message)
 
+def resource_path(relative_path):
+        #Get the absolute path to the resource, works for dev and PyInstaller.
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(base_path, relative_path)
 
 class AutoClicker:
     def __init__(self, hwnd, target_colors_hex, nearby_colors_hex, threshold, logger, target_percentage, collect_freeze):
@@ -112,10 +117,10 @@ class AutoClicker:
         if current_time - self.last_check_time >= CHECK_INTERVAL:
             self.last_check_time = current_time
             templates = [
-                cv2.imread(os.path.join("template_png", "template_play_button.png"), cv2.IMREAD_GRAYSCALE),
-                cv2.imread(os.path.join("template_png", "template_play_button1.png"), cv2.IMREAD_GRAYSCALE),
-                cv2.imread(os.path.join("template_png", "close_button.png"), cv2.IMREAD_GRAYSCALE),
-                cv2.imread(os.path.join("template_png", "captcha.png"), cv2.IMREAD_GRAYSCALE)
+                cv2.imread(resource_path(os.path.join("template_png", "template_play_button.png")), cv2.IMREAD_GRAYSCALE),
+                cv2.imread(resource_path(os.path.join("template_png", "template_play_button1.png")), cv2.IMREAD_GRAYSCALE),
+                cv2.imread(resource_path(os.path.join("template_png", "close_button.png")), cv2.IMREAD_GRAYSCALE),
+                cv2.imread(resource_path(os.path.join("template_png", "captcha.png")), cv2.IMREAD_GRAYSCALE)
             ]
 
             for template in templates:
@@ -278,6 +283,12 @@ def run_auto_clicker(target_percentage, collect_freeze, text_widget):
 
 
 
+import os
+import requests
+import tkinter as tk
+from tkinter import messagebox, simpledialog
+import sys
+
 # File to store the verified key locally
 KEY_FILE = 'activation_key.txt'
 
@@ -297,16 +308,34 @@ def store_verified_key(key):
     with open(KEY_FILE, 'w') as file:
         file.write(key)
 
-# Function to verify the activation key
+# Function to get device_id from the server
+def get_device_id_from_server(key):
+    try:
+        response = requests.get(f'https://blum-auto-clicker.onrender.com/get-device-id/{key}')
+        if response.status_code == 200:
+            return response.json().get('device_id')
+        elif response.status_code == 404:
+            messagebox.showerror("Error", "Key not found in server database!")
+        else:
+            messagebox.showerror("Error", "Error retrieving device ID!")
+    except requests.exceptions.RequestException as e:
+        messagebox.showerror("Error", f"Failed to connect to server: {e}")
+    return None
+
 def verify_activation_key():
-    key = entry_key.get()
+    key = entry_key.get()  # Assuming you're retrieving the key from an input field
+
     if not key:
         messagebox.showerror("Error", "Please enter a valid activation key")
         return
 
+    device_id = get_device_id_from_server(key)
+    if not device_id:
+        return
+
     try:
-        # Send the key to the Express server for validation
-        response = requests.post('https://blum-auto-clicker.onrender.com/validate-key', json={'key': key})
+        # Send the key and device_id to the Express server for validation
+        response = requests.post('https://blum-auto-clicker.onrender.com/validate-key', json={'key': key, 'device_id': device_id})
 
         # Check the response from the server
         if response.status_code == 200:
@@ -316,7 +345,7 @@ def verify_activation_key():
         elif response.status_code == 404:
             messagebox.showerror("Error", "Invalid activation key!")
         elif response.status_code == 400:
-            messagebox.showerror("Error", "Key has already been used!")
+            messagebox.showerror("Error", response.json().get('message', 'Unknown error'))
         else:
             messagebox.showerror("Error", "Unknown error occurred!")
     except requests.exceptions.RequestException as e:
@@ -410,7 +439,21 @@ def prompt_for_key_verification():
 stored_key = check_stored_key()
 
 if stored_key:
-    print("Key already verified. Opening Blum Auto Clicker...")
-    open_main_interface()
+    # Retrieve device_id from the server using the stored key
+    device_id = get_device_id_from_server(stored_key)
+    if device_id:
+        try:
+            response = requests.post('https://blum-auto-clicker.onrender.com/validate-key', json={'key': stored_key, 'device_id': device_id})
+            if response.status_code == 200:
+                print("Key is valid. Opening Blum Auto Clicker...")
+                open_main_interface()
+            else:
+                print("Stored key is not valid or has expired. Please re-enter the key.")
+                prompt_for_key_verification()
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Failed to connect to server: {e}")
+            prompt_for_key_verification()
+    else:
+        prompt_for_key_verification()
 else:
     prompt_for_key_verification()
