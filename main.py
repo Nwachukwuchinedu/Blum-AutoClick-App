@@ -282,7 +282,6 @@ def run_auto_clicker(target_percentage, collect_freeze, text_widget):
 
 
 
-
 import os
 import requests
 import tkinter as tk
@@ -313,7 +312,11 @@ def get_device_id_from_server(key):
     try:
         response = requests.get(f'https://blum-auto-clicker.onrender.com/get-device-id/{key}')
         if response.status_code == 200:
-            return response.json().get('device_id')
+            data = response.json()
+            if data.get('used'):
+                messagebox.showerror("Error", "This activation key has already been used!")
+                return None
+            return data.get('device_id')
         elif response.status_code == 404:
             messagebox.showerror("Error", "Key not found in server database!")
         else:
