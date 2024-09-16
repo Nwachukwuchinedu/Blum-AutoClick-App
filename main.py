@@ -325,7 +325,7 @@ def get_device_id_from_server(key):
         return None
 
     try:
-        response = requests.get(f'http://localhost:3000/get-device-id/{key}')
+        response = requests.get(f'https://blum-auto-clicker.onrender.com/get-device-id/{key}')
         if response.status_code == 200:
             data = response.json()
             if data.get('used'):
@@ -357,7 +357,7 @@ def verify_activation_key():
         if not ip_address:
             return
 
-        response = requests.post('http://localhost:3000/validate-key', json={'key': key, 'device_id': device_id, 'ip_address': ip_address})
+        response = requests.post('https://blum-auto-clicker.onrender.com/validate-key', json={'key': key, 'device_id': device_id, 'ip_address': ip_address})
 
         # Check the response from the server
         if response.status_code == 200:
@@ -469,7 +469,7 @@ if stored_key:
             if not ip_address:
                 raise ValueError("Failed to get IP address")
 
-            response = requests.post('http://localhost:3000/validate-key', json={'key': stored_key, 'device_id': device_id, 'ip_address': ip_address})
+            response = requests.post('https://blum-auto-clicker.onrender.com/validate-key', json={'key': stored_key, 'device_id': device_id, 'ip_address': ip_address})
             if response.status_code == 200:
                 print("Key is valid. Opening Blum Auto Clicker...")
                 open_main_interface()
